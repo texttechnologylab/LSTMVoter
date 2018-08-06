@@ -1,0 +1,2 @@
+Keras==2.1.6
+keras-contrib==2.0.8
