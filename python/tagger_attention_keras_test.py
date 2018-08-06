@@ -479,7 +479,8 @@ if __name__ == "__main__":
     if args.test and args.train:
         raise Exception("specifiy either train or test")
     elif args.test:
-        embeddings_matrix,embeddings_index = load_embeddings("embeddings/chemdner.txt")
+        embeddings_matrix,embeddings_index = load_embeddings("python/embeddings/chemdner.txt")
+        
         with open(args.model.replace("h5", "idxs"), 'rb') as handle:
             idxs = pickle.load(handle)
         #         with open('file', 'wb') as handle:
