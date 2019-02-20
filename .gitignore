@@ -1,2 +1,6 @@
 /evaluation.txt
 /output.txt
+/target/
+/data/
+.settings
+.classpath
