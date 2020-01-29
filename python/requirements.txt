@@ -1,2 +1,4 @@
-Keras==2.1.6
+Keras==2.2.4
 keras-contrib==2.0.8
+tensorflow==1.13.1
+networkx==1.11

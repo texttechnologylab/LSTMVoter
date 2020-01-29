@@ -3,7 +3,7 @@ from hyperopt.mongoexp import MongoTrials
 
 
 trials = Trials() 
-from cStringIO import StringIO
+from io import StringIO
 
 import json
 from pprint import pprint
@@ -110,7 +110,6 @@ def addAdditionalAnnotationFileToFile(inputFile, newFile,annotationIndex=-1):
             output.append(l.strip())
     combined = conllToAdvanced(inputFile, output);
 
-    print len(output),len(combined)
     return combined
 
 def addAdditionalAnnotationToFile(inputFile, output,asString=False):
@@ -118,7 +117,6 @@ def addAdditionalAnnotationToFile(inputFile, output,asString=False):
     combined = []
     enumaer = enumerate(f)
     for i,l in enumaer:
-        print l.strip()+"\t"+output[i]
         combined.append((l.strip()+"\t"+output[i]).split("\t"))
         
     if(asString):
@@ -172,7 +170,6 @@ def loadJsonParams(paramsFile):
     with open(paramsFile) as myfile:
         data=myfile.read().replace('\n', '').replace("'","\"")
         replaced = re.sub(r'.*(.vals.:.*?}).*', r'{\1}', data)
-        print replaced
         d = json.loads(replaced)
         return d['vals']
 

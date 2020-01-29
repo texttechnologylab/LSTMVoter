@@ -1,8 +1,6 @@
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
 import os
-from cStringIO import StringIO
+from io import StringIO
 
 #import os
 #os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -34,17 +32,17 @@ from hyperas.distributions import choice, uniform, conditional
 from utils import *
 
 def createData():
-    consideredFeatures=[5,6,7,8]
-    trainFile = "data/small_train/development_taged_by_multitagger.tiny.conll"
-    testFile = "data/small_train/evaluation_taged_by_multitagger.tiny.conll"
+    consideredFeatures=[]
+    trainFile = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/merge_train_voter.conllu.cleaned"
+    testFile = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/merge_dev_voter.conllu.cleaned"
     weights_path = "checkpoints"
-    embeddingsPath = "embeddings/chemdner.txt"
-    max_len = 425
+    embeddingsPath = "embeddings/cc.la.300.vec"
+    max_len = 100
 
     def checkFile(input_file):
         file = open(input_file, "r")
         prevLine = ""
-        print "checking file:",input_file
+        print("checking file:",input_file)
         for i,line in enumerate(file):
             if len(prevLine.strip())==0 and len(line.strip())==0:
                 raise Exception("Error in file. Two empty lines. Line:"+str(i))
@@ -77,8 +75,8 @@ def createData():
         sys.stdout.flush() 
     
     def load_embeddings(dir,skipHeader=False):
-        print "processing word embeddings file"
-        print "start: counting lines"
+        print("processing word embeddings file")
+        print("start: counting lines")
         def file_len(fname):
             embedding_size = 0
             with open(fname) as f:
@@ -86,13 +84,13 @@ def createData():
                     if (not skipHeader and i == 0) or (skipHeader and i == 1):
                         embedding_size = len(l.split(" "))-1
                     if i % 10001 == 0:
-                        print "current embeddings count", i
+                        print("current embeddings count", i)
                     pass
                 
             return i + 1, embedding_size
         
         size,embedding_size = file_len(dir)
-        print "finish: counting lines. Words in embedding file: " , size
+        print("finish: counting lines. Words in embedding file: " , size)
         
         embeddings_matrix = np.zeros((size+2, embedding_size))
         embeddings_index = {}
@@ -113,7 +111,7 @@ def createData():
         f.close()
         return embeddings_matrix,embeddings_index
     
-    def load_file(input_file,input_file_seperator,embeddings_index,idxs=None,max_len=0,considerFeatures=None):
+    def load_file(input_file,input_file_seperator,embeddings_index,idxs=None,max_len=0,considerFeatures=None,token_index = 0,output_index=1):
         file = open(input_file, "r")
         max_char_len = 20
     
@@ -130,9 +128,13 @@ def createData():
             #preperation of input file. calculating max doc length and char_idx
             cur_len = 0
             for line in file:
-                split = line.split(input_file_seperator)
-                word = split[0]
-                word = word.strip()
+                if(line.startswith(u"\x23")):
+                    continue
+                split = line.strip().split(input_file_seperator)
+                word = ""
+                if(len(line.strip()) > 1):
+                    word = split[token_index]
+                    word = word.strip()
                 
                 #calculates the maximal sequence length. This is needed to add padding vectors to lstm.
                 if(len(word) == 0):
@@ -146,7 +148,7 @@ def createData():
                         if char not in idxs["char_idx"]:
                             idxs["char_idx"][char] = len(idxs["char_idx"]) + 1
                     
-                    tmpOutput = split[1].strip()
+                    tmpOutput = split[output_index].strip()
                     if tmpOutput not in idxs["output_idx"]:
                         idxs["output_idx"][tmpOutput] = len(idxs["output_idx"])
                         
@@ -177,9 +179,13 @@ def createData():
             features[i]=[]
     
         for line in file:
+            if(line.startswith(u"\x23")):
+                continue
             line= line.strip()
             split = line.split(input_file_seperator)
-            word = split[0]
+            if(len(line.strip()) > 1):
+                word = split[token_index]
+                word = word.strip()
             #sequence is finished when empty line is detected.
             if len(split) < 2:
                 #skipping emtpy sequences.
@@ -231,12 +237,12 @@ def createData():
                 
                 
                 out = np.zeros(len(idxs["output_idx"]))
-                if(split[1] in idxs["output_idx"]):
-                    out[idxs["output_idx"][split[1]]] = 1
+                if(split[output_index] in idxs["output_idx"]):
+                    out[idxs["output_idx"][split[output_index]]] = 1
                 else:
                     out[idxs["output_idx"]["O"]] = 1
                 features_current_sequence["output_current_sequence"].append(out) #Oder 0. Aber wahrscheinlich eher 1
-                features_current_sequence["words_current_sequence"].append(split[0])
+                features_current_sequence["words_current_sequence"].append(split[token_index])
                 
                 for i in considerFeatures:
                     outTmp = np.zeros(len(idxs[i]))
@@ -263,14 +269,14 @@ def createData():
                 for j in features:
                     if j != "words" and j != "output" and j != "char_input" and j != "wordembeddings_input":
                         out = out + "\t" +getKeyByValue(idxs[j],np.argmax(features[j][sequence][i]))
-                print out
+                print(out)
             print 
     
     
     
     def loadData(inputfile,embeddingFile, embeddingSkipHeader=False,considerFeatures=None,max_len=425):
-        embeddings_matrix,embeddings_index = load_embeddings(embeddingFile)
-        features,idxs,max_len = load_file(inputfile,"\t",embeddings_index,considerFeatures=considerFeatures,max_len=max_len)
+        embeddings_matrix,embeddings_index = load_embeddings(embeddingFile,True)
+        features,idxs,max_len = load_file(inputfile,"\t",embeddings_index,considerFeatures=considerFeatures,max_len=max_len,token_index=1,output_index=3)
     #     words,wordembeddings_input, char_input,char_idx, output,output_idx,max_len = load_file(inputfile,"\t", embeddings_index,considerFeatures=[5,6,8,9,10,11])
         return features,idxs,embeddings_matrix,embeddings_index,max_len 
     
@@ -278,11 +284,11 @@ def createData():
     checkFile(trainFile)
     checkFile(testFile)
     
-    print "maxlen: trainfile ", maxlen(trainFile)
-    print "maxlen: testFile ", maxlen(testFile)
+    print("maxlen: trainfile ", maxlen(trainFile))
+    print("maxlen: testFile ", maxlen(testFile))
     
     features_train,idxs,embeddings_matrix,embeddings_index,max_len = loadData(trainFile,embeddingsPath,False,considerFeatures=consideredFeatures,max_len=max_len)
-    features_test,idxs,max_len = load_file(testFile,"\t",embeddings_index,considerFeatures=consideredFeatures,max_len=max_len,idxs=idxs)
+    features_test,idxs,max_len = load_file(testFile,"\t",embeddings_index,considerFeatures=consideredFeatures,max_len=max_len,idxs=idxs,token_index=1,output_index=3)
 
     return features_train,features_test,embeddings_matrix,idxs
 
@@ -313,12 +319,11 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
     
     #     #Char embeddings
         char_ids = Input(batch_shape=(None, None, None), dtype='int32')
-    #     char_ids = attention_3d_block(char_ids)
+#         char_ids = attention_3d_block(char_ids)
     
         char_embeddings = Embedding(input_dim=len(idxs["char_idx"])+1,
                                     output_dim=char_emb_size,
                                     mask_zero=True,
-                                    input_length=20,
                                     name = "char_emb"
                                     )(char_ids)    
         s = K.shape(char_embeddings)
@@ -351,12 +356,12 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
                 additional_features_length = additional_features_length + len(idxs[j])
                 additional_features .append(Input(batch_shape=(None, None,len(idxs[j])), dtype='float32'))
         
-        if conditional({{choice(['true', 'false'])}}) == 'true':
+        if conditional({{choice(['false'])}}) == 'true':
             additional_features_concat = Concatenate(axis=-1, name="concat_additional_feats")(additional_features)
-            print additional_features_concat.shape
+            print(additional_features_concat.shape)
             attention_probs = Dense(additional_features_length, activation='softmax', name='attention_vec_')(additional_features_concat)
             attention_mul = Multiply()([additional_features_concat, attention_probs])
-            print word_embeddings.shape, char_embeddings.shape
+            print(word_embeddings.shape, char_embeddings.shape)
             embeddings.append(attention_mul)
             merge_input = Concatenate(axis=-1, name="concat_all")(embeddings)
         else:
@@ -376,7 +381,7 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
         pred = crf(merge_lstm1)
         lossFct = crf.loss_function
         model = Model(inputs=[word_ids, char_ids]+additional_features, outputs=[pred])
-        model.compile(loss=lossFct,optimizer=Adam(lr=0.001), metrics=[crf.accuracy])
+        model.compile(loss=lossFct,optimizer="adam", metrics=[crf.accuracy])
         
         
         return model
@@ -389,7 +394,7 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
                 
         loss_function = "viterbi_acc"
         if not os.path.exists(weights_path):
-            os.mkdir( weights_path, 0755 )
+            os.mkdir( weights_path )
         checkpointCallback = keras.callbacks.ModelCheckpoint(
             weights_path+"/weights.{epoch:02d}-{"+loss_function+":.2f}.hdf5", 
             monitor=loss_function, 
@@ -403,7 +408,7 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
                                   patience=5,
                                   verbose=2, mode='auto')
     
-        model.fit(inputs, np.array(features_train["output"]), batch_size=128, epochs=1, verbose=1 
+        model.fit(inputs, np.array(features_train["output"]), batch_size=128, epochs=25, verbose=1 
                                 ,callbacks=[earlystopCallback])
         model.save_weights(weights_path+"/last_model.hdf5")
     
@@ -437,12 +442,12 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
                 output_return.append(str(rev_classes[max_pred_idx]))
             output_return.append("")
             
-        
-        precision, recall, f1 = conlleval.global_evaluate(output)
+        print(output)
+        precision, recall, f1 = conlleval.global_evaluate(output.replace("\t","\tB-"))
         precision = precision/100.
         recall = recall/100.
         f1 = f1/100.
-        print precision, recall, f1
+        print(precision, recall, f1)
         return precision, recall, f1,output_return
     
     model = createModel(features_train,embeddings_matrix,idxs)
@@ -451,7 +456,7 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
     precision, recall, f1,output_return = test(model,features_train,features_test,idxs)
     
     model.save_weights("models/model.h5."+str(f1))
-    print str(trials._trials[-1])
+    print(str(trials._trials[-1]))
     with open("models/model.json."+str(f1), "w") as json_file:
         json_file.write(str(trials._trials[-1]))
     del model
@@ -468,9 +473,9 @@ if __name__ == '__main__':
                                           algo=tpe.suggest,
                                           max_evals=100,
                                           trials=trials)
-    
+
     
     print("Evalutation of best performing model:")
-    print best_run
+    print(best_run)
 
     print("Best performing model chosen hyper-parameters:")
