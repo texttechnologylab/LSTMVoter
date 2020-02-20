@@ -30,14 +30,16 @@ from hyperas import optim
 from hyperas.distributions import choice, uniform, conditional
 
 from utils import *
+import pickle
+
 
 def createData():
-    consideredFeatures=[]
-    trainFile = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/merge_train_voter.conllu.cleaned"
-    testFile = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/merge_dev_voter.conllu.cleaned"
+    consideredFeatures=[2,3]
+    trainFile = "merge_train_voter_with_Marmot_Anago.txt"
+    testFile = "merge_dev_voter_with_Marmot_Anago.txt"
     weights_path = "checkpoints"
     embeddingsPath = "embeddings/cc.la.300.vec"
-    max_len = 100
+    max_len = 300
 
     def checkFile(input_file):
         file = open(input_file, "r")
@@ -186,6 +188,7 @@ def createData():
             if(len(line.strip()) > 1):
                 word = split[token_index]
                 word = word.strip()
+            
             #sequence is finished when empty line is detected.
             if len(split) < 2:
                 #skipping emtpy sequences.
@@ -249,7 +252,7 @@ def createData():
                     if(split[i] in idxs[i]):
                         outTmp[idxs[i][split[i]]] = 1
                     features_current_sequence[i].append(outTmp) #Oder 0. Aber wahrscheinlich eher 1
-    
+                print(word,split[output_index])
         
         return features,idxs,max_len
     
@@ -276,7 +279,7 @@ def createData():
     
     def loadData(inputfile,embeddingFile, embeddingSkipHeader=False,considerFeatures=None,max_len=425):
         embeddings_matrix,embeddings_index = load_embeddings(embeddingFile,True)
-        features,idxs,max_len = load_file(inputfile,"\t",embeddings_index,considerFeatures=considerFeatures,max_len=max_len,token_index=1,output_index=3)
+        features,idxs,max_len = load_file(inputfile,"\t",embeddings_index,considerFeatures=considerFeatures,max_len=max_len,token_index=0,output_index=1)
     #     words,wordembeddings_input, char_input,char_idx, output,output_idx,max_len = load_file(inputfile,"\t", embeddings_index,considerFeatures=[5,6,8,9,10,11])
         return features,idxs,embeddings_matrix,embeddings_index,max_len 
     
@@ -288,8 +291,12 @@ def createData():
     print("maxlen: testFile ", maxlen(testFile))
     
     features_train,idxs,embeddings_matrix,embeddings_index,max_len = loadData(trainFile,embeddingsPath,False,considerFeatures=consideredFeatures,max_len=max_len)
-    features_test,idxs,max_len = load_file(testFile,"\t",embeddings_index,considerFeatures=consideredFeatures,max_len=max_len,idxs=idxs,token_index=1,output_index=3)
+    features_test,idxs,max_len = load_file(testFile,"\t",embeddings_index,considerFeatures=consideredFeatures,max_len=max_len,idxs=idxs,token_index=0,output_index=1)
 
+
+    with open('models/model.idxs.1.0', 'wb') as handle:
+        pickle.dump(idxs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+         
     return features_train,features_test,embeddings_matrix,idxs
 
 def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
@@ -356,7 +363,7 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
                 additional_features_length = additional_features_length + len(idxs[j])
                 additional_features .append(Input(batch_shape=(None, None,len(idxs[j])), dtype='float32'))
         
-        if conditional({{choice(['false'])}}) == 'true':
+        if conditional({{choice(['false','true'])}}) == 'true':
             additional_features_concat = Concatenate(axis=-1, name="concat_additional_feats")(additional_features)
             print(additional_features_concat.shape)
             attention_probs = Dense(additional_features_length, activation='softmax', name='attention_vec_')(additional_features_concat)
@@ -405,7 +412,7 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
         
         earlystopCallback = keras.callbacks.EarlyStopping(monitor=loss_function,
                                   min_delta=0,
-                                  patience=5,
+                                  patience=2,
                                   verbose=2, mode='auto')
     
         model.fit(inputs, np.array(features_train["output"]), batch_size=128, epochs=25, verbose=1 
@@ -442,7 +449,6 @@ def trainAndTest(features_train,features_test,embeddings_matrix,idxs):
                 output_return.append(str(rev_classes[max_pred_idx]))
             output_return.append("")
             
-        print(output)
         precision, recall, f1 = conlleval.global_evaluate(output.replace("\t","\tB-"))
         precision = precision/100.
         recall = recall/100.

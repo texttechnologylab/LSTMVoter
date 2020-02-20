@@ -1,6 +1,6 @@
 from hyperopt import Trials
 from hyperopt.mongoexp import MongoTrials
-
+import os
 
 trials = Trials() 
 from io import StringIO
@@ -74,6 +74,11 @@ def conllToAdvanced(inputFile,output):
         combined.append(l.strip()+"\t"+output[i])
     return combined
 
+def listToFile(input,file):
+    with open(file, 'w') as f:
+        for item in input:
+            f.write("%s\n" % item)
+
 def advancedToConll(inputFile,asString=False,wordIndex=0,tagIndex=1):
     f = open(inputFile)
     combined = []
@@ -103,9 +108,9 @@ def addAdditionalAnnotationFileToFile(inputFile, newFile,annotationIndex=-1):
     output = []
     f_newFile = open(newFile)
     for l in f_newFile:
-        split = l.strip().split("\t");
+        split = l.strip().split();
         if(len(split)>1):
-            output.append(l.strip().split("\t")[annotationIndex].strip())
+            output.append(l.strip().split()[annotationIndex].strip())
         else:
             output.append(l.strip())
     combined = conllToAdvanced(inputFile, output);
@@ -173,6 +178,18 @@ def loadJsonParams(paramsFile):
         d = json.loads(replaced)
         return d['vals']
 
+
+def createFile(baseFile):
+    file = baseFile
+    
+    withMarmot = addAdditionalAnnotationFileToFile(file, file+ ".marmot", 2)
+    listToFile(withMarmot, file + "_with_Marmot.txt")
+    
+    withAnago = addAdditionalAnnotationFileToFile(file + "_with_Marmot.txt", file + ".anago", 2)
+    listToFile(withAnago, file + "_with_Marmot_Anago.txt")
+    
+    os.remove(file + "_with_Marmot.txt")
+
 if __name__ == "__main__":
     
 #     goldStandardTrain = biocreativeToSimpleBioCreative(readAdvancedFile("/home/ahemati/Downloads/chemdner_corpus (2)/training.annotations.txt"),True)
@@ -189,5 +206,16 @@ if __name__ == "__main__":
 #     print marmotOutputSimpleBio
 #     with open("evaluation.txt", "w") as text_file:
 #         text_file.write(marmotOutputSimpleBio)
-    pprint(loadJsonParams('models/hyperas/model.json.0.0'))
+    #pprint(loadJsonParams('models/hyperas/model.json.0.0'))
     
+    file = "merge_dev_voter"
+    
+    datadir = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/"
+    withMarmot = addAdditionalAnnotationFileToFile(os.path.join(datadir,file + ".conllu.conll2002"), os.path.join(datadir,file + ".conllu.conll2002.marmot"), 2)
+    listToFile(withMarmot, file + "_with_Marmot.txt")
+    
+    withAnago = addAdditionalAnnotationFileToFile(file + "_with_Marmot.txt", os.path.join(datadir,file + ".conllu.conll2002.anago"), 2)
+    listToFile(withAnago, file + "_with_Marmot_Anago.txt")
+    
+    os.remove(file + "_with_Marmot.txt")
+

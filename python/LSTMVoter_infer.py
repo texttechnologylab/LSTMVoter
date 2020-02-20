@@ -1,9 +1,6 @@
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
 import os
-from cStringIO import StringIO
-
+from io import StringIO
 
 import numpy as np
 import keras
@@ -13,25 +10,34 @@ from keras.optimizers import RMSprop, Adam, Adamax
 from keras import backend as K
 from keras_contrib.layers import CRF
 from keras.models import load_model
-import conlleval
+try:
+    from LSTMVoter.python import conlleval
+    from LSTMVoter.python.keras_attention_mechanism.attention_lstm import *
+    from LSTMVoter.python.utils import *
+except:
+    import conlleval
+    from keras_attention_mechanism.attention_lstm import *
+    from utils import *
+
 import json
 
 from keras.layers import merge
 from keras.layers.core import *
 from keras.layers.recurrent import LSTM
 from keras.models import *
-from keras_attention_mechanism.attention_lstm import *
 
-from utils import *
 
 from argparse import ArgumentParser
 
 import pickle
 
+get_path = lambda path: os.path.join(os.path.dirname(__file__), path)
+
+
 def checkFile(input_file):
     file = open(input_file, "r")
     prevLine = ""
-    print "checking file:",input_file
+    print("checking file:",input_file)
     for i,line in enumerate(file):
         if len(prevLine.strip())==0 and len(line.strip())==0:
             raise Exception("Error in file. Two empty lines. Line:"+str(i))
@@ -63,9 +69,9 @@ def progress(count, total, status=''):
     sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
     sys.stdout.flush() 
 
-def load_embeddings(dir,skipHeader=False):
-    print "processing word embeddings file"
-    print "start: counting lines"
+def load_embeddings(dir,skipHeader=True):
+    print("processing word embeddings file")
+    print("start: counting lines")
     def file_len(fname):
         embedding_size = 0
         with open(fname) as f:
@@ -73,13 +79,13 @@ def load_embeddings(dir,skipHeader=False):
                 if (not skipHeader and i == 0) or (skipHeader and i == 1):
                     embedding_size = len(l.split(" "))-1
                 if i % 10001 == 0:
-                    print "current embeddings count", i
+                    print("current embeddings count", i)
                 pass
             
         return i + 1, embedding_size
     
     size,embedding_size = file_len(dir)
-    print "finish: counting lines. Words in embedding file: " , size
+    print("finish: counting lines. Words in embedding file: " , size)
     
     embeddings_matrix = np.zeros((size+2, embedding_size))
     embeddings_index = {}
@@ -143,7 +149,6 @@ def load_idxs(input_file,input_file_seperator,considerFeatures,max_len,idxs=None
 
 def load_file(input_file,input_file_seperator,embeddings_index,idxs=None,max_len=0,considerFeatures=None):
     idxs = load_idxs(input_file, input_file_seperator,considerFeatures,max_len, idxs);
-
     
     max_char_len = 20
 
@@ -223,7 +228,7 @@ def load_file(input_file,input_file_seperator,embeddings_index,idxs=None,max_len
             if(split[1] in idxs["output_idx"]):
                 out[idxs["output_idx"][split[1]]] = 1
             else:
-                out[idxs["output_idx"]["O"]] = 1
+                out[idxs["output_idx"]["NOUN"]] = 1
             features_current_sequence["output_current_sequence"].append(out) #Oder 0. Aber wahrscheinlich eher 1
             features_current_sequence["words_current_sequence"].append(split[0])
             
@@ -252,7 +257,7 @@ def reconstructData(features,idxs):
             for j in features:
                 if j != "words" and j != "output" and j != "char_input" and j != "wordembeddings_input":
                     out = out + "\t" +getKeyByValue(idxs[j],np.argmax(features[j][sequence][i]))
-            print out
+            print(out)
         print 
 
 
@@ -285,7 +290,7 @@ def test_conll(model, test_input, test_output, rev_classes,test_words = None):
     precision = precision/100.
     recall = recall/100.
     f1 = f1/100.
-    print precision, recall, f1
+    print(precision, recall, f1)
     return precision, recall, f1,output_return
 
 def batch_iter(data,data1, labels, batch_size, shuffle=True, preprocessor=None):
@@ -324,7 +329,7 @@ def createModel(consideredFeatures,embeddings_matrix,idxs,weights_path):
     char_emb_size = 25
     char_lstm_size = 25
     conditional = [True,False]
-    conditional_1 = [True,False]
+    conditional_1 = [False,True]
     lstm_units = [200, 50,100]
     
     params = loadJsonParams(weights_path.replace("h5", "json"))
@@ -334,7 +339,7 @@ def createModel(consideredFeatures,embeddings_matrix,idxs,weights_path):
     conditional_1 = conditional_1[params["conditional_1"][0]]
     lstm_units = lstm_units[params["lstm_units"][0]]
     
-    print dropout,dropout_1,conditional,conditional_1,lstm_units
+    print(dropout,dropout_1,conditional,conditional_1,lstm_units)
     
     if embeddings_matrix is None:
         emb_layer = Embedding(input_dim=len(word_idx)+1,
@@ -360,7 +365,6 @@ def createModel(consideredFeatures,embeddings_matrix,idxs,weights_path):
     char_embeddings = Embedding(input_dim=len(idxs["char_idx"])+1,
                                 output_dim=char_emb_size,
                                 mask_zero=True,
-                                input_length=20,
                                 name = "char_emb"
                                 )(char_ids)    
     s = K.shape(char_embeddings)
@@ -395,10 +399,10 @@ def createModel(consideredFeatures,embeddings_matrix,idxs,weights_path):
     
     if conditional_1 == True:
         additional_features_concat = Concatenate(axis=-1, name="concat_additional_feats")(additional_features)
-        print additional_features_concat.shape
+        print(additional_features_concat.shape)
         attention_probs = Dense(additional_features_length, activation='softmax', name='attention_vec_')(additional_features_concat)
         attention_mul = Multiply()([additional_features_concat, attention_probs])
-        print word_embeddings.shape, char_embeddings.shape
+        print(word_embeddings.shape, char_embeddings.shape)
         embeddings.append(attention_mul)
         merge_input = Concatenate(axis=-1, name="concat_all")(embeddings)
     else:
@@ -417,8 +421,9 @@ def createModel(consideredFeatures,embeddings_matrix,idxs,weights_path):
     pred = crf(merge_lstm1)
     lossFct = crf.loss_function
     model = Model(inputs=[word_ids, char_ids]+additional_features, outputs=[pred])
-    model.compile(loss=lossFct,optimizer=Adam(lr=0.001), metrics=[crf.accuracy])
-    
+    model.compile(loss=lossFct,optimizer="adam", metrics=[crf.accuracy])
+    print(model.summary())
+
     return model
             
 def train(model, features_train,embeddings_matrix,idxs,weights_path):
@@ -429,7 +434,7 @@ def train(model, features_train,embeddings_matrix,idxs,weights_path):
             
     loss_function = "viterbi_acc"
     if not os.path.exists(weights_path):
-        os.mkdir( weights_path, 0755 )
+        os.mkdir( weights_path )
     checkpointCallback = keras.callbacks.ModelCheckpoint(
         weights_path+"/weights.{epoch:02d}-{"+loss_function+":.2f}.hdf5", 
         monitor=loss_function, 
@@ -449,7 +454,7 @@ def train(model, features_train,embeddings_matrix,idxs,weights_path):
 
 
 def test(model,consideredFeatures,features_test,idxs,weights_path):
-    print weights_path;
+    print(weights_path)
     model.load_weights(weights_path)
     rev_classes = ["-"]*len(idxs["output_idx"])
     for key in idxs["output_idx"]:
@@ -459,6 +464,34 @@ def test(model,consideredFeatures,features_test,idxs,weights_path):
         if j != "words" and j != "output" and j != "char_input" and j != "wordembeddings_input":
             inputs_test.append(np.array(features_test[j]))
     return test_conll(model, inputs_test, np.array(features_test["output"]), rev_classes, features_test["words"])
+
+def testAufruf(modelFile,testfile):
+    consideredFeatures = [2,3]
+    max_len = 300
+
+    embeddings_matrix,embeddings_index = load_embeddings(get_path("embeddings/cc.la.300.vec"))
+    idxsPath = ("/home/staff_homes/ahemati/projects/SequenceLabeling/LSTMVoter/python/models/model.idxs.1.0")
+    print(idxsPath)
+    with open(idxsPath, 'rb') as handle:
+        idxs = pickle.load(handle)
+    #         with open('file', 'wb') as handle:
+    #             pickle.dump(idxs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    #         print pickle.dumps(idxs)
+    model = createModel(consideredFeatures,embeddings_matrix,idxs,modelFile)
+    print(model)
+
+    features_test,idxs,max_len = load_file(testfile,"\t",embeddings_index,considerFeatures=consideredFeatures,max_len=max_len,idxs=idxs)
+    precision, recall, f1,output_return = test(model,consideredFeatures,features_test,idxs,modelFile)
+          
+    advancedOutput = conllToAdvanced(testfile, output_return);
+     
+    biocreativeOutputString = StringIO()
+    for i in advancedOutput:
+        biocreativeOutputString.write(i + "\n")
+         
+    biocreativeOutputString = biocreativeOutputString.getvalue()
+    with open("output.txt", "w") as text_file:
+        text_file.write(biocreativeOutputString)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -472,40 +505,15 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    consideredFeatures=[5,6,7,8]
+    consideredFeatures=[2,3]
     
-    max_len = 425
+    max_len = 300
     
     if args.test and args.train:
         raise Exception("specifiy either train or test")
     elif args.test:
-        embeddings_matrix,embeddings_index = load_embeddings("python/embeddings/chemdner.txt")
-        
-        with open(args.model.replace("h5", "idxs"), 'rb') as handle:
-            idxs = pickle.load(handle)
-        #         with open('file', 'wb') as handle:
-        #             pickle.dump(idxs, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        #         print pickle.dumps(idxs)
-        model = createModel(consideredFeatures,embeddings_matrix,idxs,args.model)
-
-        features_test,idxs,max_len = load_file(args.testfile,"\t",embeddings_index,considerFeatures=consideredFeatures,max_len=max_len,idxs=idxs)
-        precision, recall, f1,output_return = test(model,consideredFeatures,features_test,idxs,args.model)
-              
-        advancedOutput = conllToAdvanced(args.testfile, output_return);
-         
-        biocreativeOutputString = StringIO()
-        for i in advancedOutput:
-            biocreativeOutputString.write(i + "\n")
-             
-        biocreativeOutputString = biocreativeOutputString.getvalue()
-        with open("output.txt", "w") as text_file:
-            text_file.write(biocreativeOutputString)
+        testAufruf(args.model,args.testfile)
                  
-        biocreativeOutput = advancedToBioCreative(advancedOutput)
-                 
-        simpleOutput = biocreativeToSimpleBioCreative(biocreativeOutput, True)
-        with open("evaluation.txt", "w") as text_file:
-            text_file.write(simpleOutput)
     elif args.train:
         features_train,idxs,embeddings_matrix,embeddings_index,max_len = loadData(trainFile,"/home/staff_homes/ahemati/projects/biocreative/data/embeddings/chemdner.txt",False,considerFeatures=consideredFeatures,max_len=max_len)
         train(model,features_train,embeddings_matrix,idxs,weights_path)
