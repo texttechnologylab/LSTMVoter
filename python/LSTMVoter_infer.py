@@ -470,7 +470,7 @@ def testAufruf(modelFile,testfile):
     max_len = 300
 
     embeddings_matrix,embeddings_index = load_embeddings(get_path("embeddings/cc.la.300.vec"))
-    idxsPath = ("/home/staff_homes/ahemati/projects/SequenceLabeling/LSTMVoter/python/models/model.idxs.1.0")
+    idxsPath = (get_path("models/model.idxs.1.0"))
     print(idxsPath)
     with open(idxsPath, 'rb') as handle:
         idxs = pickle.load(handle)
@@ -492,6 +492,12 @@ def testAufruf(modelFile,testfile):
     biocreativeOutputString = biocreativeOutputString.getvalue()
     with open("output.txt", "w") as text_file:
         text_file.write(biocreativeOutputString)
+        
+    del model
+    del embeddings_matrix
+    del embeddings_index
+    del features_test
+    del idxs
 
 if __name__ == "__main__":
     parser = ArgumentParser()

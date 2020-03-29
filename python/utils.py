@@ -108,11 +108,14 @@ def addAdditionalAnnotationFileToFile(inputFile, newFile,annotationIndex=-1):
     output = []
     f_newFile = open(newFile)
     for l in f_newFile:
+        if(l.strip().startswith("#")):
+            continue
         split = l.strip().split();
         if(len(split)>1):
             output.append(l.strip().split()[annotationIndex].strip())
         else:
             output.append(l.strip())
+    
     combined = conllToAdvanced(inputFile, output);
 
     return combined
@@ -188,7 +191,32 @@ def createFile(baseFile):
     withAnago = addAdditionalAnnotationFileToFile(file + "_with_Marmot.txt", file + ".anago", 2)
     listToFile(withAnago, file + "_with_Marmot_Anago.txt")
     
+#     withUDPipe = addAdditionalAnnotationFileToFile(file + "_with_Marmot_Anago.txt", file + ".udpipe", 3)
+#     listToFile(withUDPipe, file + "_with_Marmot_Anago_UDPipe.txt")
+    
     os.remove(file + "_with_Marmot.txt")
+
+
+def conllToConllU(inputFile):
+    f = open(inputFile)
+    data = []
+    output = StringIO()
+    for l in f:
+        split = l.strip().split("\t");
+        if(len(split)>1):
+            data.append((split[0],split[-1]))
+        else:
+            data.append("")
+    
+    count = 1
+    for i in data:
+        if(len(i) == 0):
+            output.write("\n")
+            count = 1
+        else:
+            output.write("{}\t{}\t_\t{}\t_\t_\t_\t_\t_\t_\n".format(count,i[0],i[1]))
+            count = count + 1
+    return output.getvalue()
 
 if __name__ == "__main__":
     
@@ -208,14 +236,15 @@ if __name__ == "__main__":
 #         text_file.write(marmotOutputSimpleBio)
     #pprint(loadJsonParams('models/hyperas/model.json.0.0'))
     
-    file = "merge_dev_voter"
-    
-    datadir = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/"
-    withMarmot = addAdditionalAnnotationFileToFile(os.path.join(datadir,file + ".conllu.conll2002"), os.path.join(datadir,file + ".conllu.conll2002.marmot"), 2)
-    listToFile(withMarmot, file + "_with_Marmot.txt")
-    
-    withAnago = addAdditionalAnnotationFileToFile(file + "_with_Marmot.txt", os.path.join(datadir,file + ".conllu.conll2002.anago"), 2)
-    listToFile(withAnago, file + "_with_Marmot_Anago.txt")
-    
-    os.remove(file + "_with_Marmot.txt")
+#     file = "merge_dev_voter"
+#     
+#     datadir = "/home/staff_homes/ahemati/projects/SequenceLabeling/data/LT4HALA/data_and_doc/split-40-10-40-10/"
+#     withMarmot = addAdditionalAnnotationFileToFile(os.path.join(datadir,file + ".conllu.conll2002"), os.path.join(datadir,file + ".conllu.conll2002.marmot"), 2)
+#     listToFile(withMarmot, file + "_with_Marmot.txt")
+#     
+#     withAnago = addAdditionalAnnotationFileToFile(file + "_with_Marmot.txt", os.path.join(datadir,file + ".conllu.conll2002.anago"), 2)
+#     listToFile(withAnago, file + "_with_Marmot_Anago.txt")
+#     
+#     os.remove(file + "_with_Marmot.txt")
 
+    print(conllToConllU("../../output.txt"))
