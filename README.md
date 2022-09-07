@@ -1,9 +1,6 @@
 [![version](https://img.shields.io/github/license/texttechnologylab/LSTMVoter)]()
 [![](https://jitpack.io/v/texttechnologylab/LSTMVoter.svg)](https://jitpack.io/#texttechnologylab/LSTMVoter)
-
-[![Paper](http://img.shields.io/badge/paper-ACL--anthology-B31B1B.svg)](https://jcheminf.biomedcentral.com/track/pdf/10.1186/s13321-018-0327-2.pdf)
-[![Conference](http://img.shields.io/badge/conference-Journal_of_Cheminformatics-4b44ce.svg)](https://jcheminf.biomedcentral.com/articles/10.1186/s13321-018-0327-2)
-
+[![Paper](http://img.shields.io/badge/paper-Journal_of_Cheminformatics-B31B1B.svg)](https://jcheminf.biomedcentral.com/track/pdf/10.1186/s13321-018-0327-2.pdf)
 
 
 # Abstract
