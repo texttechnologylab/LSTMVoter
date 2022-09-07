@@ -1,3 +1,6 @@
+[![version](https://img.shields.io/github/license/texttechnologylab/LSTMVoter)]()
+[![](https://jitpack.io/v/texttechnologylab/LSTMVoter.svg)](https://jitpack.io/#texttechnologylab/LSTMVoter)
+
 ## Dataset Converter
 
 ### Prerequisites
